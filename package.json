@@ -1,0 +1,16 @@
+{
+  "name": "github-oauth-from-scratch",
+  "version": "1.0.0",
+  "description": "github OAuth2 from scratch, using now and micro",
+  "main": "index.js",
+  "scripts": {
+    "start": "micro",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "micro": "^7.3.2"
+  }
+}
