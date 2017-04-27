@@ -346,6 +346,270 @@ The state starts with `eaec09` which is different from the token, as expected. A
 
 The first step of the [Web Application Flow][github-web-application-flow] appears to be working. Next is handling the callback, and using the code to obtain an OAuth access token, and handing the encrypted access token to the client.
 
+## Handling the callback, and preparing and using the authentication header
+
+Now to handle the callback, acquire an OAuth token, and send it to the client, and build up a header value that contains the encrypted token and also what's needed for validation of the state parameter. Here are the steps:
+
+1. Edit the JavaScript code to save the token from the login link (`/login?token=mytoken`) in localStorage
+2. On the redirect, get the `code` parameter from the HTTP request, and make a request to the GitHub OAuth API with the `code` in exchange for an OAuth token
+3. Concatenate the state parameter and the OAuth token, with a delimiter (`;`), and encrypt them, and redirect with a `Set-Cookie` header to send the value as a cookie
+4. On the client-side, read the cookie, delete it, and add it to the localStorage value with a delimeter (`;`)
+
+When making authenticated requests to the GitHub API, the client-side code will send the localStorage value as a header. The server-side endpoint for posting code will need to:
+
+1. Split the header value into the login token and the encrypted payload
+2. Decrypt the encrypted payload and split it into the state parameter and the OAuth token
+3. Encrypt the login token and check that it matches the state parameter, and if it doesn't, deny the request with the 401 error code
+4. Make the request to GitHub
+
+### Logging
+
+Debugging is getting tricky, so we'll need logging. [now][now] currently doesn't have logging. There's a tool from a member of the community called [now-logs][now-logs] but I'll use [loggly][loggly]. They have a free account. To get it, click *Pricing* and choose *Try Loggly For Free*. After signing up, grab an API token, and add it as a `now` secret:
+
+```
+now secret add loggly-token <token>
+```
+
+Add the libraries:
+
+```
+npm install winston winston-loggly-bulk --save
+```
+
+Here's the setup code:
+
+``` javascript
+const winston = require('winston')
+require('winston-loggly-bulk')
+ 
+winston.add(winston.transports.Loggly, {
+  token: process.env.LOGGLY_TOKEN,
+  subdomain: process.env.LOGGLY_SUBDOMAIN,
+  tags: ['github-oauth-from-scratch'],
+  json: true
+})
+```
+
+To log, call `winston.log(<level>, <message>)`.
+
+### Routing
+
+With the addition of `/oauth/callback`, the main `module.exports` function will be big, so I'm going to split it up, by adding a `routes` object that maps a f`pathname` to a function that takes `req`, `res`, and `query`. The main function will just be in charge of calling into the individual route functions, and logging errors to loggly:
+
+``` javascript
+const {send} = require('micro')
+
+const routes = {
+  '/login': async (req, res, query) => {
+    // redirect to github
+  },
+  '/oauth/callback': async (req, res, query) => {
+    // handle oauth callback and redirect to /
+  },
+  '/client.js': async (req, res) => {
+    // render client.js
+  },
+  '/': async (req, res) => {
+    // render client.html
+  }
+}
+
+module.exports = async (req, res) => {
+  const {pathname, query} = url.parse(req.url, true)
+  try {
+    const route = routes[pathname]
+    if (route) {
+      await route(req, res, query)
+    } else {
+      send(res, 404, {error: 'route not found'})
+    }
+  } catch (err) {
+    try {
+      winston.log('error', `Error at ${pathname}: ${err}`)
+    } catch (err) {
+      send(res, 500, {error: `error logging request: ${err}`})
+    }
+    send(res, 500, {error: 'error in app'})
+  }
+}
+```
+
+`micro` uses the raw `req` and `res`, so `res.end` doesn't serialize to JSON. It provides `send` for that instead.
+
+### Exchanging the `code` for the access token
+
+To get the access token I'll use [superagent][superagent].
+
+```
+npm install superagent --save
+```
+
+Making the request is just a matter of following the [GitHub OAuth API docs][github-oauth]. Once the access token is retrieved, it will be combined with the `state`, encrypted, and sent to the client with a temporary cookie.
+
+``` javascript
+const request = require('superagent')
+
+const routes = {
+  // (other routes omitted)
+  '/oauth/callback': async (req, res, query) => {
+    const {code, state} = query
+    const clientReq = request.post('https://github.com/login/oauth/access_token')
+      .timeout(5000)
+      .type('form')
+      .send({
+        client_id: process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code,
+        state
+      })
+    const clientRes = await clientReq
+    const oauthResponse = cipher.encrypt(`${state};${clientRes.body.access_token}`)
+    res.statusCode = 302
+    res.setHeader('Set-Cookie', `oauthResponse=${encodeURIComponent(oauthResponse)}; Secure; Path=/; Max-Age=300`)
+    res.setHeader('Location', '/')
+    res.end()
+  }
+}
+```
+
+### Adding the Loggly environment variables with `now.json`
+
+The `npm run deploy` line is getting bigger and I'd like to add things that are specific to my deployment, so I'll use [now.json][now-json], and commit `now.json.example`. Here's my `now.json`:
+
+``` json
+{
+  "env": {
+    "GITHUB_CLIENT_ID": "@github-client-id",
+    "GITHUB_CLIENT_SECRET": "@github-client-secret",
+    "SECRET_AUTH_KEY": "@secret-auth-key",
+    "LOGGLY_TOKEN": "@loggly-token",
+    "LOGGLY_SUBDOMAIN": "benatkin"
+  },
+  "alias": "codepost",
+  "public": true
+}
+```
+
+I removed the `deploy` script from my `package.json`, and here's what it looks like now:
+
+``` json
+{
+  "name": "github-oauth-from-scratch",
+  "version": "1.0.0",
+  "description": "github OAuth2 from scratch, using now and micro",
+  "main": "index.js",
+  "scripts": {
+    "start": "micro",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "micro": "^7.3.2",
+    "superagent": "^3.5.2",
+    "winston": "^2.3.1",
+    "winston-loggly-bulk": "^1.4.2"
+  }
+}
+```
+
+### Handling the steps on the client
+
+On the client side I'll set up some divs that are hidden and shown, so it can hide the login link and show the post box when signed in:
+
+``` html
+<!doctype html>
+<html>
+  <head>
+    <title>CodePost</title>
+    <style type="text/css">
+      #container {
+        width: 600px;
+        margin: 10px;
+      }
+
+      #container .login, #container .error, #container .post {
+        display: none;
+      }
+
+      #container.state-login .login, #container.state-post .post, #container.state-error .error {
+        display: block;
+      }
+
+      #container .error {
+        color: red;
+      }
+
+      #container .post textarea {
+        width: 100%;
+        height: 8em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div class="error">
+        <p></p>
+      </div>
+      <div class="login">
+        <a id="loginLink" href="/login">Sign in with GitHub</a>
+        <script src="/client.js" charset="utf-8"></script>
+      </div>
+      <div class="post">
+        <p><textarea></textarea></p>
+        <p><button>Create Gist</button></p>
+      </div>
+    </div>
+  </body>
+</html>
+```
+
+Here's the updated `client.js`:
+
+``` javascript
+function getCookie(name) {
+  // from https://developer.mozilla.org/en-US/docs/Web/API/Document/cookie
+  const cookieRegex = new RegExp(`(?:(?:^|.*;\\s*)${name}\\s*\\=\\s*([^;]*).*$)|^.*$`)
+  const result = document.cookie.replace(cookieRegex, '$1')
+  return typeof result == 'string' && result.length ? decodeURIComponent(result) : null
+}
+
+function randomHex() {
+  let array = new Uint32Array(8)
+  window.crypto.getRandomValues(array)
+  Array.prototype.slice.call(array)
+  return Array.from(array).map(n => n.toString(16)).join('')
+}
+
+function init() {
+  let authorization = localStorage.getItem('authorization') || ''
+  const cookieValue = getCookie('oauthResponse')
+
+  if (authorization.indexOf(';') === -1) {
+    if (cookieValue) {
+      authorization = `${authorization};${cookieValue}`
+      localStorage.setItem('authorization', authorization)
+    }
+  }
+  
+  const containerEl = document.getElementById('container')
+  containerEl.classList.remove('state-login', 'state-post')
+  if (authorization.indexOf(';') === -1) {
+    containerEl.classList.add('state-login')
+    authorization = randomHex()
+    localStorage.setItem('authorization', authorization)
+    document.getElementById('loginLink').href = '/login?token=' + authorization
+  } else {
+    containerEl.classList.add('state-post')
+  }
+}
+
+init()
+```
+
+If there's a cookie, it adds it to the authorization header value, if it hasn't already been added. Once that's done, it checks if there is a full authorization header. If there isn't, it shows a new login link. Otherwise, it shows the form for creating a gist.
+
 [now]:https://zeit.co/now
 [now-secrets]:https://zeit.co/docs/features/env-and-secrets
 [micro]:https://github.com/zeit/micro
@@ -361,3 +625,7 @@ The first step of the [Web Application Flow][github-web-application-flow] appear
 [now-alias]:https://zeit.co/docs/features/aliases#creating-aliases
 [github-web-application-flow]:https://developer.github.com/v3/oauth/#web-application-flow
 [mdn-crypto]:https://developer.mozilla.org/en-US/docs/Web/API/Window/crypto
+[now-logs]:https://logs.now.sh/
+[loggly]:https://www.loggly.com/
+[superagent]:https://github.com/visionmedia/superagent
+[now-json]:https://zeit.co/blog/now-json

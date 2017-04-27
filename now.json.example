@@ -1,0 +1,10 @@
+{
+  "env": {
+    "GITHUB_CLIENT_ID": "@github-client-id",
+    "GITHUB_CLIENT_SECRET": "@github-client-secret",
+    "SECRET_AUTH_KEY": "@secret-auth-key",
+    "LOGGLY_TOKEN": "@loggly-token",
+    "LOGGLY_SUBDOMAIN": "benatkin"
+  },
+  "public": true
+}

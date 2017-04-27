@@ -2,9 +2,43 @@
 <html>
   <head>
     <title>CodePost</title>
+    <style type="text/css">
+      #container {
+        width: 600px;
+        margin: 10px;
+      }
+
+      #container .login, #container .error, #container .post {
+        display: none;
+      }
+
+      #container.state-login .login, #container.state-post .post, #container.state-error .error {
+        display: block;
+      }
+
+      #container .error {
+        color: red;
+      }
+
+      #container .post textarea {
+        width: 100%;
+        height: 8em;
+      }
+    </style>
   </head>
   <body>
-    <a id="loginLink" href="/login">Sign in with GitHub</a>
-    <script src="/client.js" charset="utf-8"></script>
+    <div id="container">
+      <div class="error">
+        <p></p>
+      </div>
+      <div class="login">
+        <a id="loginLink" href="/login">Sign in with GitHub</a>
+        <script src="/client.js" charset="utf-8"></script>
+      </div>
+      <div class="post">
+        <p><textarea></textarea></p>
+        <p><button>Create Gist</button></p>
+      </div>
+    </div>
   </body>
 </html>
