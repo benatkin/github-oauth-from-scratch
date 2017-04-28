@@ -8,11 +8,11 @@
         margin: 10px;
       }
 
-      #container .login, #container .error, #container .post {
+      #container .login, #container .error, #container .post, #container .success {
         display: none;
       }
 
-      #container.state-login .login, #container.state-post .post, #container.state-error .error {
+      #container.state-login .login, #container.state-post .post, #container.state-error .error, #container.state-success .success {
         display: block;
       }
 
@@ -29,16 +29,19 @@
   <body>
     <div id="container">
       <div class="error">
-        <p></p>
+        <p id="error"></p>
+      </div>
+      <div class="success">
+        <a id="gistLink" href="#">Gist posted successfully!</a>
       </div>
       <div class="login">
         <a id="loginLink" href="/login">Sign in with GitHub</a>
-        <script src="/client.js" charset="utf-8"></script>
       </div>
       <div class="post">
-        <p><textarea></textarea></p>
-        <p><button>Create Gist</button></p>
+        <p><textarea id="message"></textarea></p>
+        <p><button id="createGist">Create Gist</button></p>
       </div>
     </div>
+    <script src="/client.js" charset="utf-8"></script>
   </body>
 </html>

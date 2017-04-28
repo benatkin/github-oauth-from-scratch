@@ -2,13 +2,14 @@
 
 I'm following the GitHub API docs to implement OAuth2 from scratch, developing it with micro and now.sh.
 
-My plan is to build it without any dependencies, except for the platforms. It's good to work with just the platforms once in a while. The platform docs:
+I'm building it with few dependencies, for practice. The docs:
 
 - [now][now] - [secrets][now-secrets]
 - [micro][micro]
 - [node][node] - [http][node-http], [crypto][node-crypto], [url][node-url]
 - [github API][github-api] - [OAuth][github-oauth], [gists][github-gists]
 - [OAuth2][oauth2]
+- [superagent][superagent]
 - modern browsers - [MDN][mdn]
 
 ## Setting up the project
@@ -81,7 +82,7 @@ By the way, each time I complete a step, I'm running `now` and committing to thi
 
 In order to do OAuth a client key and a client secret are needed. These can be obtained by registering an OAuth application in GitHub. Go to GitHub's Settings, choose OAuth applications from the left sidebar, and click the *Register a new application* button.
 
-Enter an application name, a homepage URL, and the callback URL. The callback URL I'm using is at codepost.now.sh. I'll use [now alias][now-alias] after the next deploy to make the `codepost` use the next deployment.
+Enter an application name, a homepage URL, and the callback URL. The callback URL I'm using is at [codepost.now.sh][codepost]. I'll use [now alias][now-alias] after the next deploy to make the `codepost` use the next deployment.
 
 <img alt="register oauth application screenshot" src="https://cldup.com/t62HjZfUSd.png" width="483" height="390">
 
@@ -125,7 +126,7 @@ To use these, I'll run `now` with `-e` to specify environment variables, and `@`
 > Deployment complete!
 ```
 
-This deploys successfully. I'll grab the URL and create an alias so it will be on `https://codepost.now.sh/` so it can use the callback URL in the OAuth Application registration in GitHub:
+This deploys successfully. I'll grab the URL and create an alias so it will be on [codepost.now.sh][codepost] so it can use the callback URL in the OAuth Application registration in GitHub:
 
 ```
 ➜  github-oauth-from-scratch git:(master) ✗ now alias https://github-oauth-from-scratch-pffvuoskeu.now.sh codepost
@@ -159,17 +160,17 @@ The `state` requires some thought. The reason it's necessary is because if the i
 
 Not all sites store private data that's submitted by the user, but there are other possibilities, and it's better to protect against this up front.
 
-A common way of doing this is using the session. I want to do this without having a session, to see how close to a stateless JSON API I can make it, and to use LocalStorage instead of cookies, since cookies are sent with every request and this only needs to be sent with some requests.
+A common way of doing this is using the session. I want to do this without having a session, to see how close to a stateless JSON API I can make it, and to use LocalStorage instead of cookies, since cookies are sent with every request by default, and often the type of data sent with cookies only needs to be sent to a subset of the endpoints. For example, it isn't needed for the client-side HTML and JS files in this app.
 
 One approach would be to pass a token generated using the HTML5 crypto API to the `/login` URL, and use that as the `state` parameter in a redirect, and then have the client check it. This would handle the above scenario, so long as the client code wasn't modified to remove the check.
 
-However, a callback URL and modified client code alone would be enough to be logged in, and this isn't ideal. It would be almost the same as a login link. A properly sent redirect URL and the callback should both be required.
+However, a callback URL and modified client code alone would be enough to be logged in, and this isn't ideal. It would be almost the same as a login link. It should be validated that the redirect URL and the OAuth callback happened on the same client.
 
-To do this without dynamically storing data on the server side, the token sent to the login URL could be encrypted (two-way) or signed (one-way) using a static secret key on the server, and the encrypted token could be passed as the state parameter. After the callback, the server could send the encrypted state to the client, and the client could send both the original token that it saved in LocalStorage and the encrypted token to the server, and the server could check that the original token and the encrypted state token match, by decrypting the encrypted state token using the static secret, and seeing that it matches the original token.
+To do this without dynamically storing data on the server side, the token sent to the login URL can be encrypted (two-way) or signed (one-way) using a static secret key on the server, and the encrypted token can be passed as the state parameter. After the callback, the server can send the encrypted state to the client, and the client can send both the original token that it saved in LocalStorage and the encrypted token to the server, and the server can check that the original token and the encrypted state token match, by decrypting the encrypted state token using the static secret, and seeing that it matches the original token.
 
-Now, the client will need to hold on to the actual OAuth2 token obtained by the server. The client should only be given an encrypted OAuth2 token, so the server will have to decrypt it in order for it to be used. The client having the token has the advantage of the client being able to make requests directly to GitHub, and this technique is often used in mobile apps, but it has the drawback that the user can make arbitrary requests and have them associated with the client application. A malicious client could use it for scraping, and it could get the token revoked by the OAuth2 provider, and it would be a hassle. So if the token only needs to be used by the server, it should only be allowed to be used by the server.
+The client will need to hold on to the actual OAuth2 token obtained by the server. The client should only be given an encrypted OAuth2 token, so the server will have to decrypt it in order for it to be used. The client having the token has the advantage of the client being able to make requests directly to GitHub, and this technique is often used in mobile apps, but it has the drawback that the user can make arbitrary requests and have them associated with the client application. A malicious client could use it for scraping, and it could get the token revoked by the OAuth2 provider, and it would be a hassle. So if the token only needs to be used by the server, it should only be possible for it to be used by the server.
 
-For simplicity, I'll use two-way encryption both for the state parameter and the secret. Two-way encryption is needed for the OAuth2 token, because it needs to be stored encrypted on the client, and decrypted to be used on the server, to prevent tampering. One-way encryption would be more ideal for the state parameter checking, but I feel that two-way encryption is adequate for this use case, so I'll use two-way encryption for both purposes, so an additional function isn't needed.
+For simplicity, I'll use two-way encryption both for the state parameter and the secret. Two-way encryption is needed for the OAuth2 token, because it needs to be stored encrypted on the client, and decrypted to be used on the server. One-way encryption would be more ideal for the state parameter checking, but I feel that two-way encryption is adequate for this use case, so I'll use two-way encryption for both purposes, so an additional function isn't needed.
 
 I've created some basic encryption functions in a new file, `simple-encryption.js`. These are fairly weak, but are just for defending from XSS and preventing tampering with OAuth2 tokens for a user:
 
@@ -332,7 +333,7 @@ And I'll run `npm run deploy` and `now alias`:
 https://codepost.now.sh now points to https://github-oauth-from-scratch-gtopcvdbjr.now.sh (DGjKe93xOXvCxk0CYxwDLpSf) [copied to clipboard]
 ```
 
-And when I go to `https://codepost.now.sh/` and open up Chrome inspector to check the link, I get this:
+And when I go to [codepost.now.sh][codepost] and open up Chrome inspector to check the link, I get this:
 
 <img alt="codepost sign in screenshot" src="https://cldup.com/NYPLnxQaZL.png" width="347" height="249">
 
@@ -610,6 +611,198 @@ init()
 
 If there's a cookie, it adds it to the authorization header value, if it hasn't already been added. Once that's done, it checks if there is a full authorization header. If there isn't, it shows a new login link. Otherwise, it shows the form for creating a gist.
 
+## Validating and making the request
+
+In this step I add an endpoint to post the gist. 
+
+It takes the header and breaks it down into three parts:
+
+- the login token
+- the state parameter, which is the login token encrypted with the server's secret
+- the access token
+
+It gets the state parameter and the access token by decrypting them and splitting them.
+
+``` javascript
+{
+  '/gists': async (req, res) => {
+    const {authorization} = req.headers
+    const [loginToken, encrypted] = authorization.split(';')
+    const [state, accessToken] = cipher.decrypt(encrypted).split(';')
+    if (loginToken.length >= 16 && cipher.encrypt(loginToken) === state) {
+      const body = await json(req)
+      const clientReq = request.post('https://api.github.com/gists')
+        .timeout(5000)
+        .accept('json')
+        .set('Authorization', `token ${accessToken}`)
+        .send({
+          files: {'message.txt': {content: body.message}}
+        })
+      const clientRes = await clientReq
+      send(res, 200, { url: clientRes.body.html_url })
+    } else {
+      send(res, 401, { error: 'Invalid OAuth state' })
+    }
+  }
+}
+```
+
+A `success` element is added to the HTML/CSS to show the login link:
+
+``` html
+<!doctype html>
+<html>
+  <head>
+    <title>CodePost</title>
+    <style type="text/css">
+      #container {
+        width: 600px;
+        margin: 10px;
+      }
+
+      #container .login, #container .error, #container .post, #container .success {
+        display: none;
+      }
+
+      #container.state-login .login, #container.state-post .post, #container.state-error .error, #container.state-success .success {
+        display: block;
+      }
+
+      #container .error {
+        color: red;
+      }
+
+      #container .post textarea {
+        width: 100%;
+        height: 8em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div class="error">
+        <p id="error"></p>
+      </div>
+      <div class="success">
+        <a id="gistLink" href="#">Gist posted successfully!</a>
+      </div>
+      <div class="login">
+        <a id="loginLink" href="/login">Sign in with GitHub</a>
+      </div>
+      <div class="post">
+        <p><textarea id="message"></textarea></p>
+        <p><button id="createGist">Create Gist</button></p>
+      </div>
+    </div>
+    <script src="/client.js" charset="utf-8"></script>
+  </body>
+</html>
+```
+
+The client-side js sends the text to the GitHub API to post a gist when the button is clicked:
+
+``` javascript
+function getCookie(name) {
+  // from https://developer.mozilla.org/en-US/docs/Web/API/Document/cookie
+  const cookieRegex = new RegExp(`(?:(?:^|.*;\\s*)${name}\\s*\\=\\s*([^;]*).*$)|^.*$`)
+  const result = document.cookie.replace(cookieRegex, '$1')
+  return typeof result == 'string' && result.length ? decodeURIComponent(result) : null
+}
+
+function randomHex() {
+  let array = new Uint32Array(8)
+  window.crypto.getRandomValues(array)
+  Array.prototype.slice.call(array)
+  return Array.from(array).map(n => n.toString(16)).join('')
+}
+
+function setContainerClass(className) {
+  const containerEl = document.getElementById('container')
+  containerEl.classList.remove('state-login', 'state-post', 'state-error', 'state-success')
+  containerEl.classList.add(className)
+}
+
+function setError(message) {
+  const errorEl = document.getElementById('error')
+  errorEl.innerText = message
+  setContainerClass('state-error')
+}
+
+function init() {
+  let authorization = localStorage.getItem('authorization') || ''
+  const cookieValue = getCookie('oauthResponse')
+
+  if (authorization.length && authorization.indexOf(';') === -1) {
+    if (cookieValue) {
+      authorization = `${authorization};${cookieValue}`
+      localStorage.setItem('authorization', authorization)
+    }
+  }
+  
+  const containerEl = document.getElementById('container')
+  if (authorization.indexOf(';') === -1) {
+    setContainerClass('state-login')
+    authorization = randomHex()
+    localStorage.setItem('authorization', authorization)
+    document.getElementById('loginLink').href = '/login?token=' + authorization
+  } else {
+    setContainerClass('state-post')
+    const buttonEl = document.getElementById('createGist')
+    const messageEl = document.getElementById('message')
+    buttonEl.addEventListener('click', e => {
+      fetch('/gists', {
+        method: 'POST',
+        headers: new Headers({
+          authorization: authorization,
+          accept: 'application/json',
+          'content-type': 'application/json'
+        }),
+        body: JSON.stringify({message: messageEl.value})
+      }).then(response => {
+        if (!response.ok) throw new Error('error from server')
+        return response.json()
+      }).then(body => {
+        const gistLinkEl = document.getElementById('gistLink')
+        gistLinkEl.href = body.url
+        setContainerClass('state-success')
+      }).catch(err => {
+        setError('Error creating gist')
+      })
+    })
+  }
+}
+
+init()
+```
+
+## Putting it all together
+
+I'll go through through signing in and posting. First I'll go to [GitHub Authorized Applications][github-authorized-applications] in GitHub settings and revoke the application:
+
+<img width="373" alt="revoke application" src="https://cloud.githubusercontent.com/assets/4126/25510419/ca0de37a-2b74-11e7-87d0-ca9219a9b27c.png">
+
+After that, I go to [codepost.now.sh][codepost] and enter `localStorage.clear()` into Chrome inspector and refresh the page. I get the sign in link:
+
+<img width="214" alt="sign in link" src="https://cloud.githubusercontent.com/assets/4126/25510692/f1ebbed8-2b76-11e7-95fc-46f07b2ced97.png">
+
+When I click it I get the page on GitHub asking for my permissions:
+
+<img width="595" alt="github request page" src="https://cloud.githubusercontent.com/assets/4126/25510667/c66f3974-2b76-11e7-8904-ae897263fa05.png">
+
+After I approve I get redirected back to codepost, where there is now a form for me to post a gist:
+
+<img width="326" alt="gist form" src="https://cloud.githubusercontent.com/assets/4126/25510889/3a5d6c42-2b78-11e7-946c-5f2f733890b8.png">
+
+When I post it, it gives me a link to the gist:
+
+<img width="179" alt="link to gist" src="https://cloud.githubusercontent.com/assets/4126/25510913/637b6aa2-2b78-11e7-9f56-a98c2a10a95a.png">
+
+When I click it, I can see the gist:
+
+<img width="545" alt="gist" src="https://cloud.githubusercontent.com/assets/4126/25510951/aa512250-2b78-11e7-9895-318c2817ee78.png">
+
+That's a wrap! Feedback welcome. Just create an issue in this repository.
+
 [now]:https://zeit.co/now
 [now-secrets]:https://zeit.co/docs/features/env-and-secrets
 [micro]:https://github.com/zeit/micro
@@ -629,3 +822,5 @@ If there's a cookie, it adds it to the authorization header value, if it hasn't 
 [loggly]:https://www.loggly.com/
 [superagent]:https://github.com/visionmedia/superagent
 [now-json]:https://zeit.co/blog/now-json
+[github-authorized-applications]:https://github.com/settings/applications
+[codepost]:https://codepost.now.sh

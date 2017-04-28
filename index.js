@@ -1,4 +1,4 @@
-const {send} = require('micro')
+const {send, json} = require('micro')
 const url = require('url')
 const querystring = require('querystring')
 const cipher = require('./simple-encryption')(process.env.SECRET_AUTH_KEY)
@@ -28,8 +28,9 @@ function readFile(file) {
 }
 
 const routes = {
-  '/login': async (req, res, query) => {
-    const token = query.token
+  '/login': async (req, res) => {
+    const {query} = url.parse(req.url, true)
+    const {token} = query
     if (!(token && token.length >= 32)) {
       throw new Error('Token must be given and at least 32 characters long')
     }
@@ -44,7 +45,8 @@ const routes = {
     res.setHeader('location', redirUrl)
     res.end()
   },
-  '/oauth/callback': async (req, res, query) => {
+  '/oauth/callback': async (req, res) => {
+    const {query} = url.parse(req.url, true)
     const {code, state} = query
     const clientReq = request.post('https://github.com/login/oauth/access_token')
       .timeout(5000)
@@ -62,6 +64,25 @@ const routes = {
     res.setHeader('Location', '/')
     res.end()
   },
+  '/gists': async (req, res) => {
+    const {authorization} = req.headers
+    const [loginToken, encrypted] = authorization.split(';')
+    const [state, accessToken] = cipher.decrypt(encrypted).split(';')
+    if (loginToken.length >= 16 && cipher.encrypt(loginToken) === state) {
+      const body = await json(req)
+      const clientReq = request.post('https://api.github.com/gists')
+        .timeout(5000)
+        .accept('json')
+        .set('Authorization', `token ${accessToken}`)
+        .send({
+          files: {'message.txt': {content: body.message}}
+        })
+      const clientRes = await clientReq
+      send(res, 200, { url: clientRes.body.html_url })
+    } else {
+      send(res, 401, { error: 'Invalid OAuth state' })
+    }
+  },
   '/client.js': async (req, res) => {
     const src = await readFile('client.js')
     res.setHeader('content-type', 'text/javascript')
@@ -75,17 +96,17 @@ const routes = {
 }
 
 module.exports = async (req, res) => {
-  const {pathname, query} = url.parse(req.url, true)
+  const {pathname} = url.parse(req.url)
   try {
     const route = routes[pathname]
     if (route) {
-      await route(req, res, query)
+      await route(req, res)
     } else {
       send(res, 404, {error: 'route not found'})
     }
   } catch (err) {
     try {
-      winston.log('error', `Error at ${pathname}: ${err}`)
+      winston.log('error', { error: err, path: pathname, stack: err.stack })
     } catch (err) {
       send(res, 500, {error: `error logging request: ${err}`})
     }
