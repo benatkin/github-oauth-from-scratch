@@ -70,11 +70,11 @@ module.exports = (req, res) => { res.end(message) }
 
 After this, I run `now` to deploy it:
 
-<img alt="now output screenshot" src="https://cldup.com/Wq1xVauSpo.png" width="428" height="200">
+![now output screenshot](https://cldup.com/Wq1xVauSpo.png)
 
 ...and go to the URL to check that it works:
 
-<img alt="now output screenshot" src="https://cldup.com/57OXbYgUz0.png" width="278" height="99">
+![now output screenshot](https://cldup.com/57OXbYgUz0.png)
 
 By the way, each time I complete a step, I'm running `now` and committing to this repo, so if you'd like to follow along, go to the first commit. You'll see that the README ends abruptly here 😁
 
@@ -84,11 +84,11 @@ In order to do OAuth a client key and a client secret are needed. These can be o
 
 Enter an application name, a homepage URL, and the callback URL. The callback URL I'm using is at [codepost.now.sh][codepost]. I'll use [now alias][now-alias] after the next deploy to make the `codepost` use the next deployment.
 
-<img alt="register oauth application screenshot" src="https://cldup.com/t62HjZfUSd.png" width="483" height="390">
+![register oauth application screenshot](https://cldup.com/t62HjZfUSd.png)
 
 After submitting the form, the client ID and secrets are shown:
 
-<img alt="oauth application details screenshot" src="https://cldup.com/k4A11QYPDv.png" width="585" height="387">
+![oauth application details screenshot](https://cldup.com/k4A11QYPDv.png)
 
 *Now* has a namespace for secrets and a namespace for environment variables. The secrets are encrypted and made available to the apps by including them in environment variables. Other than that, they can't be shown once they're added.
 
@@ -136,7 +136,7 @@ https://codepost.now.sh now points to https://github-oauth-from-scratch-pffvuosk
 
 I can go and look at the page. Since the code hasn't changed, it's the same as it was in the previous step:
 
-<img alt="codepost.now.sh screenshot" src="https://cldup.com/tXHm1JXqKH.png" width="174" height="39">
+![codepost.now.sh screenshot](https://cldup.com/tXHm1JXqKH.png)
 
 ## Redirecting to GitHub for authentication
 
@@ -335,11 +335,11 @@ https://codepost.now.sh now points to https://github-oauth-from-scratch-gtopcvdb
 
 And when I go to [codepost.now.sh][codepost] and open up Chrome inspector to check the link, I get this:
 
-<img alt="codepost sign in screenshot" src="https://cldup.com/NYPLnxQaZL.png" width="347" height="249">
+![codepost sign in screenshot](https://cldup.com/NYPLnxQaZL.png)
 
 You can see in Chrome Inspector that the token starts with `3c7fb8`. When I click it, I get shown the GitHub authorization screen:
 
-<img alt="github sign in screen" src="https://cldup.com/zc0K9Zvmuk.png" width="512" height="289">
+![github sign in screen](https://cldup.com/zc0K9Zvmuk.png)
 
 The state starts with `eaec09` which is different from the token, as expected. After clicking the *Authorize application* button, it redirects to the callback URL, as shown:
 
@@ -779,27 +779,27 @@ init()
 
 I'll go through through signing in and posting. First I'll go to [GitHub Authorized Applications][github-authorized-applications] in GitHub settings and revoke the application:
 
-<img width="373" alt="revoke application" src="https://cloud.githubusercontent.com/assets/4126/25510419/ca0de37a-2b74-11e7-87d0-ca9219a9b27c.png">
+![revoke application](https://cloud.githubusercontent.com/assets/4126/25510419/ca0de37a-2b74-11e7-87d0-ca9219a9b27c.png)
 
 After that, I go to [codepost.now.sh][codepost] and enter `localStorage.clear()` into Chrome inspector and refresh the page. I get the sign in link:
 
-<img width="214" alt="sign in link" src="https://cloud.githubusercontent.com/assets/4126/25510692/f1ebbed8-2b76-11e7-95fc-46f07b2ced97.png">
+![sign in link](https://cloud.githubusercontent.com/assets/4126/25510692/f1ebbed8-2b76-11e7-95fc-46f07b2ced97.png)
 
 When I click it I get the page on GitHub asking for my permissions:
 
-<img width="595" alt="github request page" src="https://cloud.githubusercontent.com/assets/4126/25510667/c66f3974-2b76-11e7-8904-ae897263fa05.png">
+![github request page](https://cloud.githubusercontent.com/assets/4126/25510667/c66f3974-2b76-11e7-8904-ae897263fa05.png)
 
 After I approve I get redirected back to codepost, where there is now a form for me to post a gist:
 
-<img width="326" alt="gist form" src="https://cloud.githubusercontent.com/assets/4126/25510889/3a5d6c42-2b78-11e7-946c-5f2f733890b8.png">
+![gist form](https://cloud.githubusercontent.com/assets/4126/25510889/3a5d6c42-2b78-11e7-946c-5f2f733890b8.png)
 
 When I post it, it gives me a link to the gist:
 
-<img width="179" alt="link to gist" src="https://cloud.githubusercontent.com/assets/4126/25510913/637b6aa2-2b78-11e7-9f56-a98c2a10a95a.png">
+![link to gist](https://cloud.githubusercontent.com/assets/4126/25510913/637b6aa2-2b78-11e7-9f56-a98c2a10a95a.png)
 
 When I click it, I can see the gist:
 
-<img width="545" alt="gist" src="https://cloud.githubusercontent.com/assets/4126/25510951/aa512250-2b78-11e7-9895-318c2817ee78.png">
+![gist](https://cloud.githubusercontent.com/assets/4126/25510951/aa512250-2b78-11e7-9895-318c2817ee78.png)
 
 That's a wrap! Feedback welcome. Just create an issue in this repository.
 
